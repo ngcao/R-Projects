@@ -1,0 +1,196 @@
+---
+title: "Workout Wednesday (Nov 7th, 2018)"
+output:
+  html_document:
+    df_print: paged
+---
+
+**Goal:** <br>
+1.  Download data set from http://www.vizwiz.com/p/workout-wednesday.html <br>
+2.  Replicate the data visualization as closely as you can <br>
+3.  Share it on social media with #WorkoutWednesday
+
+
+**Source:** <br>
+https://www.linkedin.com/pulse/november-data-challenge-kate-strachnyi-/
+
+
+**Dataset:** <br>
+https://www.womanindata.co.uk/2017/01/workout-wednesday-showing-nothing-when.html
+
+**Replicate the following visualization**
+```{r}
+knitr::include_graphics('dept_sales.png')
+```
+
+##### Load libraries
+```{r}
+library(tidyverse)
+library(lubridate)
+library(plotly)
+library(gridExtra)
+library(cowplot)
+```
+
+##### Read in the 'SuperstoreSales' file
+```{r}
+sales = read.csv('SuperstoreSales.csv')
+```
+
+##### View data structure
+```{r}
+glimpse(sales)
+```
+
+##### Check to see how many categories of products there are
+```{r}
+table(sales$Product.Category)
+```
+
+##### Check to see how many categories of sub products there are
+```{r}
+table(sales$Product.Sub.Category)
+```
+
+##### Subset the dataframe to get only variables we need
+```{r}
+sales_subset = 
+  sales %>%
+  select(Order.Date, Sales, Profit, Product.Category, 
+         Product.Sub.Category)
+```
+
+##### From the filtered dataframe, aggregate the sales by sub-categories, then filter the top selling categories (top 5)
+```{r}
+best_selling_cats = 
+  sales_subset %>%
+    group_by(Product.Sub.Category) %>%
+    summarize(Sales = sum(Sales), Profit = sum(Profit)) %>%
+    arrange(desc(Sales)) %>%
+    head(5)
+
+head(best_selling_cats)
+```
+
+##### Transform the dataframe to get the descending order necessary for plotting the bar plot
+```{r}
+best_selling_cats = transform(best_selling_cats, 
+            Product.Sub.Category = reorder(Product.Sub.Category, Sales))
+```
+
+##### Plot the first plot
+```{r}
+p1 = ggplot(best_selling_cats) +
+  geom_bar(stat = 'identity', width = 0.8,
+           aes(y = Sales, x= Product.Sub.Category, fill = Profit), color = 'black') +
+  coord_flip(expand = TRUE, clip = 'off') +
+  scale_fill_gradient(low="gray", high="skyblue4") +
+  ylab('Sales (£)') +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = 'bold'),
+        panel.grid.major = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title.x = element_text(hjust = 0.2, size = 12, face = 'bold'),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11),
+        legend.position = 'top',
+        legend.text = element_blank(),
+        legend.spacing = element_blank()) 
+  
+p1
+```
+
+##### For second plot, we will need to sort sales by order date (ascending), then aggregate the sales by category by month. 
+First, view the data structure again
+
+```{r}
+glimpse(sales)
+```
+
+##### Formate 'Order.Date' column 
+```{r}
+sales$Order.Date = mdy(sales$Order.Date)
+```
+
+##### Perform the aforementioned task
++  Sort sales by order date (arrange)
++  Aggregate sales by category and by month
+
+```{r}
+sales_by_month = 
+  sales %>%
+  arrange(-desc(Order.Date)) %>%
+  group_by(Product.Category, month = floor_date(Order.Date, "month")) %>%
+  summarize(total_sales = sum(Sales))
+```
+
+##### Double check the result 
+```{r}
+head(sales_by_month)
+```
+
+##### Plot the sales by category over the time period (Jan 2012 to Dec 2015)
+
+```{r}
+p2 = ggplot(sales_by_month, aes(x = month, y = total_sales, color = Product.Category)) +
+  geom_line() +
+  ggtitle('All Deparments Sales Report') +
+  theme_minimal() +
+  xlab('Month') + 
+  labs(color = 'Category') +
+  theme(plot.title = element_text(size = 18, face = 'bold', hjust = 0.8),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 12, face = 'bold'),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14))
+
+p2
+```
+
+##### Interactive part. Convert p2 to interactive plot. 
+```{r}
+p3 = ggplot(sales_by_month, aes(x = month, y = total_sales, color = Product.Category)) +
+  geom_line() +
+  ggtitle('All Departments Sales Report') +
+  theme_minimal() +
+  xlab('Month') + 
+  labs(color = 'Category') +
+  theme(plot.title = element_text(size = 18, face = 'bold', hjust = 0.8),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 12, face = 'bold'),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14))
+
+p3 = ggplotly(p3)
+
+p3
+```
+
+##### Arrange the two plots in one dashboard
+
+```{r}
+ggdraw() +
+  draw_plot(p2, x = 0, y = 0.5, width = 1, height = 0.5) +
+  draw_plot(p1, x = 0, y = 0, width = 1, height = 0.5) +
+  annotate('text', y= 0.4, x = 0.2, size = 4.8, fontface = 'bold',label = 'Best selling categories')
+
+ggsave('dept_sales_NC.png')
+```
+
+
+
+
+
+
+
+
+
+
